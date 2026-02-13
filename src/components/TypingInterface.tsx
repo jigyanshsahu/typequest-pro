@@ -90,37 +90,74 @@ export function TypingInterface({
           ref={containerRef}
           className="max-h-48 overflow-hidden rounded-lg border border-border bg-card p-6 text-xl leading-relaxed"
         >
-          <div className="flex flex-wrap gap-x-2.5 gap-y-2">
-            {words.map((word, wi) => (
-              <span
-                key={wi}
-                ref={(el) => { wordRefs.current[wi] = el; }}
-                className={`inline-block ${wi === currentWordIndex ? "border-b-2 border-primary" : ""}`}
-              >
-                {word.split("").map((char, ci) => {
-                  let colorClass = "text-muted-foreground";
-                  if (wi < currentWordIndex) {
-                    const status = charStatuses[wi]?.[ci];
-                    colorClass = status === "incorrect" ? "text-destructive" : "text-foreground";
-                  } else if (wi === currentWordIndex) {
-                    const status = charStatuses[wi]?.[ci];
-                    if (status === "correct") colorClass = "text-foreground";
-                    else if (status === "incorrect") colorClass = "text-destructive";
-                  }
-                  return (
-                    <span key={ci} className={colorClass}>
-                      {char}
+        <div className="relative flex flex-wrap gap-x-2.5 gap-y-2">
+            {words.map((word, wi) => {
+              const isCurrent = wi === currentWordIndex;
+              const isPast = wi < currentWordIndex;
+              const isFuture = wi > currentWordIndex;
+
+              return (
+                <span
+                  key={wi}
+                  ref={(el) => { wordRefs.current[wi] = el; }}
+                  className={`relative inline-block transition-all duration-150 ${isCurrent ? "scale-[1.02]" : ""}`}
+                >
+                  {/* Moving bar / caret for current word */}
+                  {isCurrent && (
+                    <span
+                      className="absolute -bottom-1 left-0 h-0.5 bg-primary rounded-full transition-all duration-150 ease-out"
+                      style={{
+                        width: `${Math.min((currentInput.length / Math.max(word.length, 1)) * 100, 100)}%`,
+                      }}
+                    />
+                  )}
+                  {word.split("").map((char, ci) => {
+                    let style: React.CSSProperties = {};
+                    let className = "";
+
+                    if (isFuture) {
+                      // Untyped words: 40% opacity
+                      style = { opacity: 0.4 };
+                      className = "text-foreground";
+                    } else if (isPast) {
+                      const status = charStatuses[wi]?.[ci];
+                      if (status === "incorrect") {
+                        className = "text-destructive";
+                        style = { opacity: 0.8 };
+                      } else {
+                        className = "text-foreground";
+                        style = { opacity: 1 };
+                      }
+                    } else if (isCurrent) {
+                      const status = charStatuses[wi]?.[ci];
+                      if (status === "correct") {
+                        className = "text-foreground";
+                        style = { opacity: 1 };
+                      } else if (status === "incorrect") {
+                        className = "text-destructive";
+                        style = { opacity: 0.8 };
+                      } else {
+                        // Not yet typed in current word
+                        className = "text-foreground";
+                        style = { opacity: 0.4 };
+                      }
+                    }
+
+                    return (
+                      <span key={ci} className={`transition-opacity duration-100 ${className}`} style={style}>
+                        {char}
+                      </span>
+                    );
+                  })}
+                  {/* Extra typed chars beyond word length */}
+                  {isCurrent && currentInput.length > word.length && (
+                    <span className="text-destructive" style={{ opacity: 0.6 }}>
+                      {currentInput.slice(word.length)}
                     </span>
-                  );
-                })}
-                {/* Extra typed chars beyond word length */}
-                {wi === currentWordIndex && currentInput.length > word.length && (
-                  <span className="text-destructive/60">
-                    {currentInput.slice(word.length)}
-                  </span>
-                )}
-              </span>
-            ))}
+                  )}
+                </span>
+              );
+            })}
           </div>
         </div>
 
