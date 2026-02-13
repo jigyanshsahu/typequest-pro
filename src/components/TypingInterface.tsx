@@ -9,7 +9,6 @@ interface TypingInterfaceProps {
   timeLeft: number;
   wpm: number;
   accuracy: number;
-  targetWpm: number;
   isActive: boolean;
 }
 
@@ -21,7 +20,6 @@ export function TypingInterface({
   timeLeft,
   wpm,
   accuracy,
-  targetWpm,
   isActive,
 }: TypingInterfaceProps) {
   const wordRefs = useRef<(HTMLSpanElement | null)[]>([]);
@@ -39,9 +37,6 @@ export function TypingInterface({
     }
   }, [currentWordIndex]);
 
-  const speedRatio = Math.min(wpm / targetWpm, 2);
-  const speedPercent = Math.min(speedRatio * 50, 100);
-
   const formatTime = (s: number) => {
     const m = Math.floor(s / 60);
     const sec = s % 60;
@@ -49,46 +44,27 @@ export function TypingInterface({
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-4">
-      <div className="w-full max-w-3xl space-y-8">
+    <div className="flex min-h-screen flex-col items-center justify-center px-6">
+      <div className="w-full max-w-5xl space-y-10">
         {/* Stats bar */}
-        <div className="flex items-center justify-between text-sm">
-          <div className="flex items-center gap-6">
+        <div className="flex items-center justify-between text-base">
+          <div className="flex items-center gap-8">
             <span className="text-muted-foreground">
-              wpm: <span className="text-2xl font-bold text-primary">{wpm}</span>
+              wpm: <span className="text-3xl font-bold text-primary">{wpm}</span>
             </span>
             <span className="text-muted-foreground">
-              acc: <span className="text-2xl font-bold text-foreground">{accuracy}%</span>
+              acc: <span className="text-3xl font-bold text-foreground">{accuracy}%</span>
             </span>
           </div>
-          <span className={`text-3xl font-bold ${timeLeft <= 5 ? "text-destructive animate-pulse-glow" : "text-foreground"}`}>
+          <span className={`text-4xl font-bold ${timeLeft <= 5 ? "text-destructive animate-pulse-glow" : "text-foreground"}`}>
             {formatTime(timeLeft)}
           </span>
-        </div>
-
-        {/* Speed bar */}
-        <div className="space-y-1">
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>speed</span>
-            <span>target: {targetWpm} wpm</span>
-          </div>
-          <div className="relative h-2 w-full overflow-hidden rounded-full bg-secondary">
-            <div
-              className="absolute left-0 top-0 h-full rounded-full transition-all duration-300"
-              style={{
-                width: `${speedPercent}%`,
-                backgroundColor: speedRatio >= 1 ? "hsl(var(--success))" : speedRatio >= 0.7 ? "hsl(var(--primary))" : "hsl(var(--destructive))",
-              }}
-            />
-            {/* Target line */}
-            <div className="absolute top-0 h-full w-0.5 bg-foreground/30" style={{ left: "50%" }} />
-          </div>
         </div>
 
         {/* Words display */}
         <div
           ref={containerRef}
-          className="max-h-48 overflow-hidden rounded-lg border border-border bg-card p-6 text-xl leading-relaxed"
+          className="max-h-72 overflow-hidden rounded-xl border border-border bg-card p-8 text-2xl leading-loose"
         >
         <div className="relative flex flex-wrap gap-x-2.5 gap-y-2">
             {words.map((word, wi) => {

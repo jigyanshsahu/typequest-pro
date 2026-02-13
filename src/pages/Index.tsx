@@ -101,7 +101,6 @@ const Index = () => {
       timeLeft={game.timeLeft}
       wpm={game.wpm}
       accuracy={game.accuracy}
-      targetWpm={targetWpm}
       isActive={game.isActive}
     />
   );
