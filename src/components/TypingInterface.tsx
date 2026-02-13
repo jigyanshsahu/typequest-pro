@@ -114,9 +114,9 @@ export function TypingInterface({
                   {word.split("").map((char, ci) => {
                     let style: React.CSSProperties = {};
                     let className = "";
+                    const showCaret = isCurrent && ci === currentInput.length;
 
                     if (isFuture) {
-                      // Untyped words: 40% opacity
                       style = { opacity: 0.4 };
                       className = "text-foreground";
                     } else if (isPast) {
@@ -137,18 +137,28 @@ export function TypingInterface({
                         className = "text-destructive";
                         style = { opacity: 0.8 };
                       } else {
-                        // Not yet typed in current word
                         className = "text-foreground";
                         style = { opacity: 0.4 };
                       }
                     }
 
                     return (
-                      <span key={ci} className={`transition-opacity duration-100 ${className}`} style={style}>
-                        {char}
+                      <span key={ci} className="relative">
+                        {showCaret && (
+                          <span className="absolute left-0 top-0 h-full w-[2px] bg-primary animate-blink" />
+                        )}
+                        <span className={`transition-opacity duration-100 ${className}`} style={style}>
+                          {char}
+                        </span>
                       </span>
                     );
                   })}
+                  {/* Caret at end of word if all chars typed */}
+                  {isCurrent && currentInput.length >= word.length && (
+                    <span className="relative">
+                      <span className="absolute left-0 top-0 h-full w-[2px] bg-primary animate-blink" />
+                    </span>
+                  )}
                   {/* Extra typed chars beyond word length */}
                   {isCurrent && currentInput.length > word.length && (
                     <span className="text-destructive" style={{ opacity: 0.6 }}>

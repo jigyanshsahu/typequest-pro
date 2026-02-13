@@ -27,8 +27,10 @@ serve(async (req) => {
             content: `You are a typing practice text generator. Generate a single educational paragraph about the given topic for a typing exercise. Rules:
 - Write exactly 40-60 words
 - Use simple, clear English
-- No special characters, no quotes, no parentheses
-- Only use common punctuation: periods, commas
+- ALL LOWERCASE only, no capital letters at all
+- No special characters, no quotes, no parentheses, no punctuation whatsoever
+- No periods, no commas, no apostrophes, no hyphens, no colons, no semicolons
+- Only plain lowercase letters and spaces
 - Make it interesting and educational
 - Return ONLY the paragraph text, nothing else`,
           },
