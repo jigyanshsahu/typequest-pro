@@ -41,7 +41,13 @@ const Index = () => {
       }
 
       const data = await res.json();
-      setText(data.text);
+      // Normalize: lowercase, strip special chars, only letters and spaces
+      const cleaned = data.text
+        .toLowerCase()
+        .replace(/[^a-z\s]/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+      setText(cleaned);
       setScreen("typing");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to generate text");
