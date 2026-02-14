@@ -125,7 +125,7 @@ export function useTypingGame(text: string, duration: number, targetWpm: number)
 
         if (e.key === " ") {
           e.preventDefault();
-          if (prev.currentInput.length === 0) return prev; // Don't skip empty words
+          if (prev.currentInput.length === 0) return prev;
           const currentWord = prev.words[prev.currentWordIndex];
           const isCorrect = prev.currentInput === currentWord;
           const nextIndex = prev.currentWordIndex + 1;
@@ -134,6 +134,10 @@ export function useTypingGame(text: string, duration: number, targetWpm: number)
           if (allDone) {
             if (timerRef.current) clearInterval(timerRef.current);
           }
+
+          // Keep char statuses for typed chars; untyped chars remain default
+          const newCharStatuses = { ...prev.charStatuses };
+          // charStatuses for this word already has typed chars; untyped ones have no entry = default opacity
 
           return {
             ...prev,
@@ -147,12 +151,22 @@ export function useTypingGame(text: string, duration: number, targetWpm: number)
         }
 
         if (e.key === "Backspace") {
+          if (prev.currentInput.length === 0) return prev; // Can't go back to previous word
           const newInput = prev.currentInput.slice(0, -1);
           const newCharStatuses = { ...prev.charStatuses };
-          newCharStatuses[prev.currentWordIndex] = {};
           const word = prev.words[prev.currentWordIndex];
-          for (let i = 0; i < newInput.length; i++) {
-            newCharStatuses[prev.currentWordIndex][i] = newInput[i] === word?.[i] ? "correct" : "incorrect";
+          const removedCharIndex = prev.currentInput.length - 1;
+          const removedChar = prev.currentInput[removedCharIndex];
+          
+          // Only allow backspace if the last char was incorrect
+          if (removedChar === word?.[removedCharIndex]) {
+            // Char was correct — don't allow removing it
+            return prev;
+          }
+          
+          // Remove the incorrect char status
+          if (newCharStatuses[prev.currentWordIndex]) {
+            delete newCharStatuses[prev.currentWordIndex][removedCharIndex];
           }
           return { ...prev, currentInput: newInput, charStatuses: newCharStatuses };
         }

@@ -105,8 +105,8 @@ export function TypingInterface({
 
                     return (
                       <span key={ci} className="relative">
-                        {showCaret && (
-                          <span className="absolute left-0 top-0 h-full w-[2px] bg-foreground animate-blink" />
+                         {showCaret && (
+                          <span className="absolute left-0 top-0 h-full w-[2px] bg-foreground animate-blink transition-all duration-75 ease-out" />
                         )}
                         <span className={className}>
                           {char}
@@ -114,10 +114,10 @@ export function TypingInterface({
                       </span>
                     );
                   })}
-                  {/* Caret at end of word if all chars typed */}
+                   {/* Caret at end of word if all chars typed */}
                   {isCurrent && currentInput.length >= word.length && (
                     <span className="relative">
-                      <span className="absolute left-0 top-0 h-full w-[2px] bg-foreground animate-blink" />
+                      <span className="absolute left-0 top-0 h-full w-[2px] bg-foreground animate-blink transition-all duration-75 ease-out" />
                     </span>
                   )}
                   {/* Extra typed chars beyond word length */}
