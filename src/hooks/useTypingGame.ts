@@ -151,20 +151,48 @@ export function useTypingGame(text: string, duration: number, targetWpm: number)
         }
 
         if (e.key === "Backspace") {
-          if (prev.currentInput.length === 0) return prev; // Can't go back to previous word
+          // If current word is empty, go back to previous word
+          if (prev.currentInput.length === 0) {
+            if (prev.currentWordIndex === 0) return prev;
+            const prevWordIndex = prev.currentWordIndex - 1;
+            const prevWord = prev.words[prevWordIndex];
+            // Reconstruct the input from charStatuses of the previous word
+            let reconstructed = "";
+            const statuses = prev.charStatuses[prevWordIndex] || {};
+            for (let i = 0; i < prevWord.length; i++) {
+              if (statuses[i]) {
+                reconstructed += statuses[i] === "correct" ? prevWord[i] : prev.currentInput[i] || "?";
+              } else {
+                break; // stop at first untyped char
+              }
+            }
+            // Find the actual typed length from charStatuses
+            let typedLen = 0;
+            for (let i = 0; i < prevWord.length; i++) {
+              if (statuses[i] !== undefined) typedLen = i + 1;
+              else break;
+            }
+            // Rebuild input from what was typed
+            let prevInput = "";
+            for (let i = 0; i < typedLen; i++) {
+              prevInput += statuses[i] === "correct" ? prevWord[i] : "?";
+            }
+            
+            return {
+              ...prev,
+              currentWordIndex: prevWordIndex,
+              currentInput: prevInput,
+              correctWords: prev.correctWords > 0 ? prev.correctWords - (prev.charStatuses[prevWordIndex] ? 0 : 1) : 0,
+              incorrectWords: prev.incorrectWords > 0 ? prev.incorrectWords - 1 : 0,
+            };
+          }
+          
           const newInput = prev.currentInput.slice(0, -1);
           const newCharStatuses = { ...prev.charStatuses };
           const word = prev.words[prev.currentWordIndex];
           const removedCharIndex = prev.currentInput.length - 1;
-          const removedChar = prev.currentInput[removedCharIndex];
           
-          // Only allow backspace if the last char was incorrect
-          if (removedChar === word?.[removedCharIndex]) {
-            // Char was correct — don't allow removing it
-            return prev;
-          }
-          
-          // Remove the incorrect char status
+          // Remove the char status
           if (newCharStatuses[prev.currentWordIndex]) {
             delete newCharStatuses[prev.currentWordIndex][removedCharIndex];
           }
