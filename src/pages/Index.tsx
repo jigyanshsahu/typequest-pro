@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 import { TopicSelection } from "@/components/TopicSelection";
 import { TypingInterface } from "@/components/TypingInterface";
@@ -67,9 +67,12 @@ const Index = () => {
   }, []);
 
   // Auto-switch to results when game finishes
-  if (screen === "typing" && game.isFinished) {
-    setTimeout(() => setScreen("results"), 100);
-  }
+  useEffect(() => {
+    if (screen === "typing" && game.isFinished) {
+      const t = setTimeout(() => setScreen("results"), 300);
+      return () => clearTimeout(t);
+    }
+  }, [screen, game.isFinished]);
 
   if (screen === "topic") {
     return <TopicSelection onStart={handleStart} isLoading={isLoading} />;

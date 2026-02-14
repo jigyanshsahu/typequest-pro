@@ -125,6 +125,7 @@ export function useTypingGame(text: string, duration: number, targetWpm: number)
 
         if (e.key === " ") {
           e.preventDefault();
+          if (prev.currentInput.length === 0) return prev; // Don't skip empty words
           const currentWord = prev.words[prev.currentWordIndex];
           const isCorrect = prev.currentInput === currentWord;
           const nextIndex = prev.currentWordIndex + 1;
