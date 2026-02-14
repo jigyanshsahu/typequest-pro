@@ -65,7 +65,7 @@ export function TypingInterface({
         <div
           ref={containerRef}
           className="overflow-hidden rounded-xl border border-border bg-card p-8 text-2xl leading-loose"
-          style={{ maxHeight: `${VISIBLE_LINES * LINE_HEIGHT_PX + 16}px` }}
+          style={{ height: `${VISIBLE_LINES * LINE_HEIGHT_PX + 16}px` }}
         >
           <div className="relative flex flex-wrap gap-x-2.5 gap-y-2">
             {words.map((word, wi) => {
