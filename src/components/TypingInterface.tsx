@@ -1,5 +1,4 @@
 import { useEffect, useRef } from "react";
-import type { WpmDataPoint } from "@/hooks/useTypingGame";
 
 interface TypingInterfaceProps {
   words: string[];
@@ -11,6 +10,9 @@ interface TypingInterfaceProps {
   accuracy: number;
   isActive: boolean;
 }
+
+const VISIBLE_LINES = 3;
+const LINE_HEIGHT_PX = 48; // approximate line height for text-2xl leading-loose
 
 export function TypingInterface({
   words,
@@ -30,10 +32,8 @@ export function TypingInterface({
     if (el && containerRef.current) {
       const container = containerRef.current;
       const elTop = el.offsetTop;
-      const containerHeight = container.clientHeight;
-      if (elTop > containerHeight / 2) {
-        container.scrollTop = elTop - containerHeight / 3;
-      }
+      // Keep current word in the first visible line
+      container.scrollTop = Math.max(0, elTop - 8);
     }
   }, [currentWordIndex]);
 
@@ -50,7 +50,7 @@ export function TypingInterface({
         <div className="flex items-center justify-between text-base">
           <div className="flex items-center gap-8">
             <span className="text-muted-foreground">
-              wpm: <span className="text-3xl font-bold text-primary">{wpm}</span>
+              wpm: <span className="text-3xl font-bold text-foreground">{wpm}</span>
             </span>
             <span className="text-muted-foreground">
               acc: <span className="text-3xl font-bold text-foreground">{accuracy}%</span>
@@ -61,12 +61,13 @@ export function TypingInterface({
           </span>
         </div>
 
-        {/* Words display */}
+        {/* Words display - only 3 lines visible */}
         <div
           ref={containerRef}
-          className="max-h-72 overflow-hidden rounded-xl border border-border bg-card p-8 text-2xl leading-loose"
+          className="overflow-hidden rounded-xl border border-border bg-card p-8 text-2xl leading-loose"
+          style={{ maxHeight: `${VISIBLE_LINES * LINE_HEIGHT_PX + 16}px` }}
         >
-        <div className="relative flex flex-wrap gap-x-2.5 gap-y-2">
+          <div className="relative flex flex-wrap gap-x-2.5 gap-y-2">
             {words.map((word, wi) => {
               const isCurrent = wi === currentWordIndex;
               const isPast = wi < currentWordIndex;
@@ -76,54 +77,38 @@ export function TypingInterface({
                 <span
                   key={wi}
                   ref={(el) => { wordRefs.current[wi] = el; }}
-                  className={`relative inline-block transition-all duration-150 ${isCurrent ? "scale-[1.02]" : ""}`}
+                  className="relative inline-block"
                 >
-                  {/* Moving bar / caret for current word */}
-                  {isCurrent && (
-                    <span
-                      className="absolute -bottom-1 left-0 h-0.5 bg-primary rounded-full transition-all duration-150 ease-out"
-                      style={{
-                        width: `${Math.min((currentInput.length / Math.max(word.length, 1)) * 100, 100)}%`,
-                      }}
-                    />
-                  )}
                   {word.split("").map((char, ci) => {
-                    let style: React.CSSProperties = {};
                     let className = "";
                     const showCaret = isCurrent && ci === currentInput.length;
 
                     if (isFuture) {
-                      style = { opacity: 0.4 };
-                      className = "text-foreground";
+                      className = "text-muted-foreground";
                     } else if (isPast) {
                       const status = charStatuses[wi]?.[ci];
                       if (status === "incorrect") {
                         className = "text-destructive";
-                        style = { opacity: 0.8 };
                       } else {
                         className = "text-foreground";
-                        style = { opacity: 1 };
                       }
                     } else if (isCurrent) {
                       const status = charStatuses[wi]?.[ci];
                       if (status === "correct") {
                         className = "text-foreground";
-                        style = { opacity: 1 };
                       } else if (status === "incorrect") {
                         className = "text-destructive";
-                        style = { opacity: 0.8 };
                       } else {
-                        className = "text-foreground";
-                        style = { opacity: 0.4 };
+                        className = "text-muted-foreground";
                       }
                     }
 
                     return (
                       <span key={ci} className="relative">
                         {showCaret && (
-                          <span className="absolute left-0 top-0 h-full w-[2px] bg-primary animate-blink" />
+                          <span className="absolute left-0 top-0 h-full w-[2px] bg-foreground animate-blink" />
                         )}
-                        <span className={`transition-opacity duration-100 ${className}`} style={style}>
+                        <span className={className}>
                           {char}
                         </span>
                       </span>
@@ -132,12 +117,12 @@ export function TypingInterface({
                   {/* Caret at end of word if all chars typed */}
                   {isCurrent && currentInput.length >= word.length && (
                     <span className="relative">
-                      <span className="absolute left-0 top-0 h-full w-[2px] bg-primary animate-blink" />
+                      <span className="absolute left-0 top-0 h-full w-[2px] bg-foreground animate-blink" />
                     </span>
                   )}
                   {/* Extra typed chars beyond word length */}
                   {isCurrent && currentInput.length > word.length && (
-                    <span className="text-destructive" style={{ opacity: 0.6 }}>
+                    <span className="text-destructive">
                       {currentInput.slice(word.length)}
                     </span>
                   )}
@@ -147,7 +132,7 @@ export function TypingInterface({
           </div>
         </div>
 
-        {/* Current input display */}
+        {/* Hint */}
         <div className="text-center">
           {!isActive && currentWordIndex === 0 && (
             <p className="animate-pulse-glow text-sm text-muted-foreground">start typing to begin...</p>
