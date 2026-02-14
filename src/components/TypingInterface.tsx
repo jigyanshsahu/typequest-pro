@@ -89,8 +89,11 @@ export function TypingInterface({
                       const status = charStatuses[wi]?.[ci];
                       if (status === "incorrect") {
                         className = "text-destructive";
-                      } else {
+                      } else if (status === "correct") {
                         className = "text-foreground";
+                      } else {
+                        // Skipped/untyped char — 40% opacity
+                        className = "text-muted-foreground";
                       }
                     } else if (isCurrent) {
                       const status = charStatuses[wi]?.[ci];
