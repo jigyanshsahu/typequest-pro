@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, useLayoutEffect } from "react";
 
 interface TypingInterfaceProps {
   words: string[];
@@ -12,7 +12,7 @@ interface TypingInterfaceProps {
 }
 
 const VISIBLE_LINES = 3;
-const LINE_HEIGHT_PX = 48; // approximate line height for text-2xl leading-loose
+const LINE_HEIGHT_PX = 48;
 
 export function TypingInterface({
   words,
@@ -26,21 +26,67 @@ export function TypingInterface({
 }: TypingInterfaceProps) {
   const wordRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
+  const charRefs = useRef<Map<string, HTMLSpanElement>>(new Map());
+  const [caretPos, setCaretPos] = useState<{ left: number; top: number }>({ left: 0, top: 0 });
 
+  // Scroll to keep current word visible
   useEffect(() => {
     const el = wordRefs.current[currentWordIndex];
     if (el && containerRef.current) {
-      const container = containerRef.current;
-      const elTop = el.offsetTop;
-      // Keep current word in the first visible line
-      container.scrollTop = Math.max(0, elTop - 8);
+      containerRef.current.scrollTop = Math.max(0, el.offsetTop - 8);
     }
   }, [currentWordIndex]);
+
+  // Update caret position smoothly
+  useLayoutEffect(() => {
+    const word = words[currentWordIndex];
+    if (!word || !innerRef.current) return;
+
+    const charIndex = currentInput.length;
+    let targetEl: HTMLSpanElement | null = null;
+    let placeAfter = false;
+
+    if (charIndex < word.length) {
+      // Caret before this character
+      targetEl = charRefs.current.get(`${currentWordIndex}-${charIndex}`) || null;
+    } else {
+      // Caret after last char (or after extra typed chars)
+      // Use the word ref's end
+      const wordEl = wordRefs.current[currentWordIndex];
+      if (wordEl && innerRef.current) {
+        const containerRect = innerRef.current.getBoundingClientRect();
+        const wordRect = wordEl.getBoundingClientRect();
+        setCaretPos({
+          left: wordRect.right - containerRect.left,
+          top: wordRect.top - containerRect.top,
+        });
+        return;
+      }
+    }
+
+    if (targetEl && innerRef.current) {
+      const containerRect = innerRef.current.getBoundingClientRect();
+      const targetRect = targetEl.getBoundingClientRect();
+      setCaretPos({
+        left: targetRect.left - containerRect.left,
+        top: targetRect.top - containerRect.top,
+      });
+    }
+  }, [currentWordIndex, currentInput, words]);
 
   const formatTime = (s: number) => {
     const m = Math.floor(s / 60);
     const sec = s % 60;
     return `${m}:${sec.toString().padStart(2, "0")}`;
+  };
+
+  const setCharRef = (key: string, el: HTMLSpanElement | null) => {
+    if (el) {
+      charRefs.current.set(key, el);
+    } else {
+      charRefs.current.delete(key);
+    }
   };
 
   return (
@@ -67,7 +113,16 @@ export function TypingInterface({
           className="overflow-hidden rounded-xl border border-border bg-card p-8 text-2xl leading-loose"
           style={{ height: `${VISIBLE_LINES * LINE_HEIGHT_PX + 16}px` }}
         >
-          <div className="relative flex flex-wrap gap-x-2.5 gap-y-2">
+          <div ref={innerRef} className="relative flex flex-wrap gap-x-2.5 gap-y-2">
+            {/* Smooth caret */}
+            <span
+              className="absolute w-[2px] bg-foreground pointer-events-none z-10"
+              style={{
+                height: "1.4em",
+                transform: `translate(${caretPos.left}px, ${caretPos.top}px)`,
+                transition: "transform 80ms cubic-bezier(0.22, 1, 0.36, 1)",
+              }}
+            />
             {words.map((word, wi) => {
               const isCurrent = wi === currentWordIndex;
               const isPast = wi < currentWordIndex;
@@ -81,7 +136,6 @@ export function TypingInterface({
                 >
                   {word.split("").map((char, ci) => {
                     let className = "";
-                    const showCaret = isCurrent && ci === currentInput.length;
 
                     if (isFuture) {
                       className = "text-muted-foreground";
@@ -92,7 +146,6 @@ export function TypingInterface({
                       } else if (status === "correct") {
                         className = "text-foreground";
                       } else {
-                        // Skipped/untyped char — 40% opacity
                         className = "text-muted-foreground";
                       }
                     } else if (isCurrent) {
@@ -107,22 +160,15 @@ export function TypingInterface({
                     }
 
                     return (
-                      <span key={ci} className="relative">
-                         {showCaret && (
-                          <span className="absolute left-0 top-0 h-full w-[2px] bg-foreground animate-blink transition-all duration-75 ease-out" />
-                        )}
-                        <span className={className}>
-                          {char}
-                        </span>
+                      <span
+                        key={ci}
+                        ref={(el) => setCharRef(`${wi}-${ci}`, el)}
+                        className={className}
+                      >
+                        {char}
                       </span>
                     );
                   })}
-                   {/* Caret at end of word if all chars typed */}
-                  {isCurrent && currentInput.length >= word.length && (
-                    <span className="relative">
-                      <span className="absolute left-0 top-0 h-full w-[2px] bg-foreground animate-blink transition-all duration-75 ease-out" />
-                    </span>
-                  )}
                   {/* Extra typed chars beyond word length */}
                   {isCurrent && currentInput.length > word.length && (
                     <span className="text-destructive">
