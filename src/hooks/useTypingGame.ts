@@ -151,21 +151,29 @@ export function useTypingGame(text: string, duration: number, targetWpm: number)
         }
 
         if (e.key === "Backspace") {
+          const isCtrl = e.ctrlKey || e.metaKey;
+
           // If current word is empty, go back to previous word
           if (prev.currentInput.length === 0) {
             if (prev.currentWordIndex === 0) return prev;
             const prevWordIndex = prev.currentWordIndex - 1;
             const prevWord = prev.words[prevWordIndex];
-            // Reconstruct the input from charStatuses of the previous word
-            let reconstructed = "";
             const statuses = prev.charStatuses[prevWordIndex] || {};
-            for (let i = 0; i < prevWord.length; i++) {
-              if (statuses[i]) {
-                reconstructed += statuses[i] === "correct" ? prevWord[i] : prev.currentInput[i] || "?";
-              } else {
-                break; // stop at first untyped char
-              }
+
+            if (isCtrl) {
+              // Ctrl+Backspace on empty input: go back and clear entire previous word
+              const newCharStatuses = { ...prev.charStatuses };
+              delete newCharStatuses[prevWordIndex];
+              return {
+                ...prev,
+                currentWordIndex: prevWordIndex,
+                currentInput: "",
+                charStatuses: newCharStatuses,
+                correctWords: prev.correctWords > 0 ? prev.correctWords - (statuses ? 0 : 1) : 0,
+                incorrectWords: prev.incorrectWords > 0 ? prev.incorrectWords - 1 : 0,
+              };
             }
+
             // Find the actual typed length from charStatuses
             let typedLen = 0;
             for (let i = 0; i < prevWord.length; i++) {
@@ -182,14 +190,20 @@ export function useTypingGame(text: string, duration: number, targetWpm: number)
               ...prev,
               currentWordIndex: prevWordIndex,
               currentInput: prevInput,
-              correctWords: prev.correctWords > 0 ? prev.correctWords - (prev.charStatuses[prevWordIndex] ? 0 : 1) : 0,
+              correctWords: prev.correctWords > 0 ? prev.correctWords - (statuses ? 0 : 1) : 0,
               incorrectWords: prev.incorrectWords > 0 ? prev.incorrectWords - 1 : 0,
             };
+          }
+
+          if (isCtrl) {
+            // Ctrl+Backspace: clear entire current input
+            const newCharStatuses = { ...prev.charStatuses };
+            delete newCharStatuses[prev.currentWordIndex];
+            return { ...prev, currentInput: "", charStatuses: newCharStatuses };
           }
           
           const newInput = prev.currentInput.slice(0, -1);
           const newCharStatuses = { ...prev.charStatuses };
-          const word = prev.words[prev.currentWordIndex];
           const removedCharIndex = prev.currentInput.length - 1;
           
           // Remove the char status
