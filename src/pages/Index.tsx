@@ -105,6 +105,7 @@ const Index = () => {
       wpm={game.wpm}
       accuracy={game.accuracy}
       isActive={game.isActive}
+      targetWpm={targetWpm}
     />
   );
 };
