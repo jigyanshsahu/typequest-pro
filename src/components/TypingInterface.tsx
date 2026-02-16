@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useLayoutEffect } from "react";
+import { Keyboard } from "lucide-react";
 
 interface TypingInterfaceProps {
   words: string[];
@@ -10,6 +11,7 @@ interface TypingInterfaceProps {
   accuracy: number;
   isActive: boolean;
   targetWpm: number;
+  onLogoClick: () => void;
 }
 
 const VISIBLE_LINES = 3;
@@ -25,6 +27,7 @@ export function TypingInterface({
   accuracy,
   isActive,
   targetWpm,
+  onLogoClick,
 }: TypingInterfaceProps) {
   const wordRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -182,7 +185,18 @@ export function TypingInterface({
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-6">
+    <div className="relative flex min-h-screen flex-col items-center justify-center px-6">
+      {/* Logo - top right */}
+      <button
+        onClick={onLogoClick}
+        className="absolute top-6 right-6 flex items-center gap-2 transition-opacity hover:opacity-70"
+      >
+        <Keyboard className="h-5 w-5 text-primary" />
+        <span className="font-sans text-lg font-bold text-foreground">
+          type<span className="text-primary">learn</span>
+        </span>
+      </button>
+
       <div className="w-full max-w-5xl space-y-10">
         {/* Stats bar */}
         <div className="flex items-center justify-between text-base">

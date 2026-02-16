@@ -1,4 +1,4 @@
-import { RotateCcw, Sparkles } from "lucide-react";
+import { Keyboard, RotateCcw, Sparkles } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import type { WpmDataPoint } from "@/hooks/useTypingGame";
 
@@ -30,7 +30,18 @@ export function ResultsScreen({
   const hitTarget = wpm >= targetWpm;
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-4">
+    <div className="relative flex min-h-screen flex-col items-center justify-center px-4">
+      {/* Logo - top right */}
+      <button
+        onClick={onNewTopic}
+        className="absolute top-6 right-6 flex items-center gap-2 transition-opacity hover:opacity-70"
+      >
+        <Keyboard className="h-5 w-5 text-primary" />
+        <span className="font-sans text-lg font-bold text-foreground">
+          type<span className="text-primary">learn</span>
+        </span>
+      </button>
+
       <div className="w-full max-w-2xl space-y-8">
         {/* Title */}
         <div className="text-center">
