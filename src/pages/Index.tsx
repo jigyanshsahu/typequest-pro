@@ -106,6 +106,7 @@ const Index = () => {
       accuracy={game.accuracy}
       isActive={game.isActive}
       targetWpm={targetWpm}
+      onLogoClick={handleNewTopic}
     />
   );
 };
