@@ -31,7 +31,7 @@ export function TypingInterface({
   const innerRef = useRef<HTMLDivElement>(null);
   const charRefs = useRef<Map<string, HTMLSpanElement>>(new Map());
   const [caretPos, setCaretPos] = useState<{ left: number; top: number }>({ left: 0, top: 0 });
-  const [ghostCaretPos, setGhostCaretPos] = useState<{ left: number; top: number }>({ left: 0, top: 0 });
+  const [ghostCaretPos, setGhostCaretPos] = useState<{ left: number; top: number } | null>(null);
   const ghostCharIndexRef = useRef(0);
   const ghostAnimRef = useRef<number | null>(null);
   const ghostStartTimeRef = useRef<number | null>(null);
@@ -52,6 +52,21 @@ export function TypingInterface({
     flatChars.current = chars;
   }, [words]);
 
+  // Initialize ghost caret at first character position
+  useLayoutEffect(() => {
+    if (!isActive && innerRef.current && flatChars.current.length > 0) {
+      const firstChar = charRefs.current.get("0-0");
+      if (firstChar && innerRef.current) {
+        const containerRect = innerRef.current.getBoundingClientRect();
+        const charRect = firstChar.getBoundingClientRect();
+        setGhostCaretPos({
+          left: charRect.left - containerRect.left,
+          top: charRect.top - containerRect.top,
+        });
+      }
+    }
+  }, [isActive, words]);
+
   // Ghost caret animation: advance at target WPM speed
   useEffect(() => {
     if (!isActive) {
@@ -65,7 +80,7 @@ export function TypingInterface({
       ghostCharIndexRef.current = 0;
     }
 
-    const charsPerMs = (targetWpm * 5) / 60 / 1000; // chars per millisecond
+    const charsPerMs = (targetWpm * 5) / 60 / 1000;
 
     const tick = (now: number) => {
       const elapsed = now - (ghostStartTimeRef.current || now);
@@ -73,7 +88,6 @@ export function TypingInterface({
       const clampedIndex = Math.min(expectedChars, flatChars.current.length - 1);
       ghostCharIndexRef.current = clampedIndex;
 
-      // Position the ghost caret
       if (innerRef.current && clampedIndex >= 0 && clampedIndex < flatChars.current.length) {
         const { wi, ci } = flatChars.current[clampedIndex];
         const word = words[wi];
@@ -83,7 +97,7 @@ export function TypingInterface({
           targetEl = charRefs.current.get(`${wi}-${ci}`) || null;
         }
 
-        if (targetEl) {
+        if (targetEl && innerRef.current) {
           const containerRect = innerRef.current.getBoundingClientRect();
           const targetRect = targetEl.getBoundingClientRect();
           setGhostCaretPos({
@@ -91,7 +105,6 @@ export function TypingInterface({
             top: targetRect.top - containerRect.top,
           });
         } else {
-          // Space after word — position at end of word
           const wordEl = wordRefs.current[wi];
           if (wordEl && innerRef.current) {
             const containerRect = innerRef.current.getBoundingClientRect();
@@ -194,14 +207,15 @@ export function TypingInterface({
         >
           <div ref={innerRef} className="relative flex flex-wrap gap-x-2.5 gap-y-2">
             {/* Ghost caret - moves at target WPM speed */}
-            {isActive && (
+            {ghostCaretPos && (
               <span
-                className="absolute w-[2px] pointer-events-none z-[9] rounded-full"
+                className="absolute pointer-events-none z-[9] rounded-full"
                 style={{
+                  width: "2.5px",
                   height: "1.4em",
                   backgroundColor: "hsl(var(--foreground) / 0.6)",
                   transform: `translate(${ghostCaretPos.left}px, ${ghostCaretPos.top}px)`,
-                  transition: "transform 120ms cubic-bezier(0.22, 1, 0.36, 1)",
+                  transition: "transform 150ms cubic-bezier(0.22, 1, 0.36, 1)",
                 }}
               />
             )}
