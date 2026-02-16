@@ -9,6 +9,7 @@ interface TypingInterfaceProps {
   wpm: number;
   accuracy: number;
   isActive: boolean;
+  targetWpm: number;
 }
 
 const VISIBLE_LINES = 3;
@@ -23,12 +24,94 @@ export function TypingInterface({
   wpm,
   accuracy,
   isActive,
+  targetWpm,
 }: TypingInterfaceProps) {
   const wordRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
   const charRefs = useRef<Map<string, HTMLSpanElement>>(new Map());
   const [caretPos, setCaretPos] = useState<{ left: number; top: number }>({ left: 0, top: 0 });
+  const [ghostCaretPos, setGhostCaretPos] = useState<{ left: number; top: number }>({ left: 0, top: 0 });
+  const ghostCharIndexRef = useRef(0);
+  const ghostAnimRef = useRef<number | null>(null);
+  const ghostStartTimeRef = useRef<number | null>(null);
+
+  // Flatten all characters with their word/char indices for ghost caret positioning
+  const flatChars = useRef<{ wi: number; ci: number }[]>([]);
+  useEffect(() => {
+    const chars: { wi: number; ci: number }[] = [];
+    words.forEach((word, wi) => {
+      word.split("").forEach((_, ci) => {
+        chars.push({ wi, ci });
+      });
+      // Add a virtual char for the space after each word (except last)
+      if (wi < words.length - 1) {
+        chars.push({ wi, ci: word.length }); // space position
+      }
+    });
+    flatChars.current = chars;
+  }, [words]);
+
+  // Ghost caret animation: advance at target WPM speed
+  useEffect(() => {
+    if (!isActive) {
+      ghostStartTimeRef.current = null;
+      if (ghostAnimRef.current) cancelAnimationFrame(ghostAnimRef.current);
+      return;
+    }
+
+    if (!ghostStartTimeRef.current) {
+      ghostStartTimeRef.current = performance.now();
+      ghostCharIndexRef.current = 0;
+    }
+
+    const charsPerMs = (targetWpm * 5) / 60 / 1000; // chars per millisecond
+
+    const tick = (now: number) => {
+      const elapsed = now - (ghostStartTimeRef.current || now);
+      const expectedChars = Math.floor(elapsed * charsPerMs);
+      const clampedIndex = Math.min(expectedChars, flatChars.current.length - 1);
+      ghostCharIndexRef.current = clampedIndex;
+
+      // Position the ghost caret
+      if (innerRef.current && clampedIndex >= 0 && clampedIndex < flatChars.current.length) {
+        const { wi, ci } = flatChars.current[clampedIndex];
+        const word = words[wi];
+        let targetEl: HTMLSpanElement | null = null;
+
+        if (ci < word.length) {
+          targetEl = charRefs.current.get(`${wi}-${ci}`) || null;
+        }
+
+        if (targetEl) {
+          const containerRect = innerRef.current.getBoundingClientRect();
+          const targetRect = targetEl.getBoundingClientRect();
+          setGhostCaretPos({
+            left: targetRect.left - containerRect.left,
+            top: targetRect.top - containerRect.top,
+          });
+        } else {
+          // Space after word — position at end of word
+          const wordEl = wordRefs.current[wi];
+          if (wordEl && innerRef.current) {
+            const containerRect = innerRef.current.getBoundingClientRect();
+            const wordRect = wordEl.getBoundingClientRect();
+            setGhostCaretPos({
+              left: wordRect.right - containerRect.left,
+              top: wordRect.top - containerRect.top,
+            });
+          }
+        }
+      }
+
+      ghostAnimRef.current = requestAnimationFrame(tick);
+    };
+
+    ghostAnimRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (ghostAnimRef.current) cancelAnimationFrame(ghostAnimRef.current);
+    };
+  }, [isActive, targetWpm, words]);
 
   // Scroll to keep current word visible
   useEffect(() => {
@@ -38,21 +121,17 @@ export function TypingInterface({
     }
   }, [currentWordIndex]);
 
-  // Update caret position smoothly
+  // Update typing caret position
   useLayoutEffect(() => {
     const word = words[currentWordIndex];
     if (!word || !innerRef.current) return;
 
     const charIndex = currentInput.length;
     let targetEl: HTMLSpanElement | null = null;
-    let placeAfter = false;
 
     if (charIndex < word.length) {
-      // Caret before this character
       targetEl = charRefs.current.get(`${currentWordIndex}-${charIndex}`) || null;
     } else {
-      // Caret after last char (or after extra typed chars)
-      // Use the word ref's end
       const wordEl = wordRefs.current[currentWordIndex];
       if (wordEl && innerRef.current) {
         const containerRect = innerRef.current.getBoundingClientRect();
@@ -114,11 +193,24 @@ export function TypingInterface({
           style={{ height: `${VISIBLE_LINES * LINE_HEIGHT_PX + 16}px` }}
         >
           <div ref={innerRef} className="relative flex flex-wrap gap-x-2.5 gap-y-2">
-            {/* Smooth caret */}
+            {/* Ghost caret - moves at target WPM speed */}
+            {isActive && (
+              <span
+                className="absolute w-[2px] pointer-events-none z-[9] rounded-full"
+                style={{
+                  height: "1.4em",
+                  backgroundColor: "hsl(var(--foreground) / 0.6)",
+                  transform: `translate(${ghostCaretPos.left}px, ${ghostCaretPos.top}px)`,
+                  transition: "transform 120ms cubic-bezier(0.22, 1, 0.36, 1)",
+                }}
+              />
+            )}
+            {/* Typing caret - follows user input */}
             <span
-              className="absolute w-[2px] bg-foreground pointer-events-none z-10"
+              className="absolute w-[2px] pointer-events-none z-10 rounded-full"
               style={{
                 height: "1.4em",
+                backgroundColor: "hsl(var(--foreground))",
                 transform: `translate(${caretPos.left}px, ${caretPos.top}px)`,
                 transition: "transform 80ms cubic-bezier(0.22, 1, 0.36, 1)",
               }}
