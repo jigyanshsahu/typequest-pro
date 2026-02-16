@@ -213,7 +213,7 @@ export function TypingInterface({
                 style={{
                   width: "2.5px",
                   height: "1.4em",
-                  backgroundColor: "hsl(var(--foreground) / 0.6)",
+                  backgroundColor: "rgba(255, 255, 255, 0.6)",
                   transform: `translate(${ghostCaretPos.left}px, ${ghostCaretPos.top}px)`,
                   transition: "transform 150ms cubic-bezier(0.22, 1, 0.36, 1)",
                 }}
@@ -224,7 +224,7 @@ export function TypingInterface({
               className="absolute w-[2px] pointer-events-none z-10 rounded-full"
               style={{
                 height: "1.4em",
-                backgroundColor: "hsl(var(--foreground))",
+                backgroundColor: "#ffffff",
                 transform: `translate(${caretPos.left}px, ${caretPos.top}px)`,
                 transition: "transform 80ms cubic-bezier(0.22, 1, 0.36, 1)",
               }}
