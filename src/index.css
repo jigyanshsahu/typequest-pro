@@ -59,3 +59,32 @@
     @apply bg-background text-foreground font-mono;
   }
 }
+
+/* Caret animations */
+@keyframes caret-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+@keyframes caret-glow {
+  0%, 100% {
+    box-shadow: 0 0 4px 1px rgba(255, 255, 255, 0.4),
+                0 0 8px 2px rgba(255, 255, 255, 0.15);
+  }
+  50% {
+    box-shadow: 0 0 8px 2px rgba(255, 255, 255, 0.6),
+                0 0 16px 4px rgba(255, 255, 255, 0.25);
+  }
+}
+
+.caret-typing {
+  animation: caret-blink 1s ease-in-out infinite, caret-glow 2s ease-in-out infinite;
+}
+
+.caret-typing.caret-active {
+  animation: caret-glow 2s ease-in-out infinite;
+}
+
+.caret-ghost {
+  animation: caret-blink 1.5s ease-in-out infinite;
+}

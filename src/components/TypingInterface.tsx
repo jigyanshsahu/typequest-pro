@@ -250,24 +250,24 @@ export function TypingInterface({
             {/* Ghost caret - moves at target WPM speed */}
             {ghostCaretPos && (
               <span
-                className="absolute pointer-events-none z-[9] rounded-full"
+                className="absolute pointer-events-none z-[9] rounded-full caret-ghost"
                 style={{
                   width: "2.5px",
                   height: "1.4em",
-                  backgroundColor: "rgba(255, 255, 255, 0.6)",
+                  backgroundColor: "rgba(255, 255, 255, 0.5)",
                   transform: `translate(${ghostCaretPos.left}px, ${ghostCaretPos.top}px)`,
-                  transition: "transform 150ms cubic-bezier(0.22, 1, 0.36, 1)",
+                  transition: "transform 200ms cubic-bezier(0.25, 1, 0.5, 1)",
                 }}
               />
             )}
             {/* Typing caret - follows user input */}
             <span
-              className="absolute w-[2px] pointer-events-none z-10 rounded-full"
+              className={`absolute w-[2.5px] pointer-events-none z-10 rounded-full caret-typing ${isActive ? "caret-active" : ""}`}
               style={{
                 height: "1.4em",
                 backgroundColor: "#ffffff",
                 transform: `translate(${caretPos.left}px, ${caretPos.top}px)`,
-                transition: "transform 80ms cubic-bezier(0.22, 1, 0.36, 1)",
+                transition: "transform 100ms cubic-bezier(0.25, 1, 0.5, 1)",
               }}
             />
             {words.map((word, wi) => {
