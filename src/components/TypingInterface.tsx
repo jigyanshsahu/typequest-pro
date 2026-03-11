@@ -40,6 +40,7 @@ export function TypingInterface({
   onLogoClick,
 }: TypingInterfaceProps) {
   const [showExitDialog, setShowExitDialog] = useState(false);
+  const wordRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
   const charRefs = useRef<Map<string, HTMLSpanElement>>(new Map());
