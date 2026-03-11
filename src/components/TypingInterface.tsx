@@ -1,5 +1,15 @@
 import { useEffect, useRef, useState, useLayoutEffect } from "react";
 import { Keyboard } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface TypingInterfaceProps {
   words: string[];
