@@ -1,5 +1,15 @@
 import { useEffect, useRef, useState, useLayoutEffect } from "react";
 import { Keyboard } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface TypingInterfaceProps {
   words: string[];
@@ -29,6 +39,7 @@ export function TypingInterface({
   targetWpm,
   onLogoClick,
 }: TypingInterfaceProps) {
+  const [showExitDialog, setShowExitDialog] = useState(false);
   const wordRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
@@ -188,7 +199,7 @@ export function TypingInterface({
     <div className="relative flex min-h-screen flex-col items-center justify-center px-6">
       {/* Logo - top right */}
       <button
-        onClick={onLogoClick}
+        onClick={() => isActive ? setShowExitDialog(true) : onLogoClick()}
         className="absolute top-6 right-6 flex items-center gap-2 transition-opacity hover:opacity-70"
       >
         <Keyboard className="h-5 w-5 text-primary" />
@@ -196,6 +207,22 @@ export function TypingInterface({
           type<span className="text-primary">learn</span>
         </span>
       </button>
+
+      {/* Exit confirmation dialog */}
+      <AlertDialog open={showExitDialog} onOpenChange={setShowExitDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Leave typing session?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your current progress will be lost. Are you sure you want to go back to topic selection?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep typing</AlertDialogCancel>
+            <AlertDialogAction onClick={onLogoClick}>Leave</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <div className="w-full max-w-5xl space-y-10">
         {/* Stats bar */}
