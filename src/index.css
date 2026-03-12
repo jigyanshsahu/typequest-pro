@@ -87,6 +87,17 @@
   animation: caret-glow 2s ease-in-out infinite;
 }
 
+@keyframes caret-glow-ghost {
+  0%, 100% {
+    box-shadow: 0 0 3px 1px rgba(255, 255, 255, 0.15),
+                0 0 8px 2px rgba(255, 255, 255, 0.06);
+  }
+  50% {
+    box-shadow: 0 0 6px 2px rgba(255, 255, 255, 0.25),
+                0 0 14px 4px rgba(255, 255, 255, 0.1);
+  }
+}
+
 .caret-ghost {
-  animation: caret-blink 1.5s ease-in-out infinite;
+  animation: caret-blink 1.5s ease-in-out infinite, caret-glow-ghost 2.5s ease-in-out infinite;
 }
