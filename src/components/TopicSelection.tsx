@@ -11,7 +11,7 @@ interface TopicSelectionProps {
 
 export function TopicSelection({ onStart, isLoading }: TopicSelectionProps) {
   const [topic, setTopic] = useState("");
-  const [duration, setDuration] = useState(30);
+  const [duration, setDuration] = useState(60);
   const [targetWpm, setTargetWpm] = useState(60);
 
   const handleStart = () => {
