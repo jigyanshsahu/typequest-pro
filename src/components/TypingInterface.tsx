@@ -10,6 +10,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import type { GameMode, CaretStyle, FontSize } from "@/hooks/usePreferences";
 
 interface TypingInterfaceProps {
   words: string[];
@@ -22,10 +23,21 @@ interface TypingInterfaceProps {
   isActive: boolean;
   targetWpm: number;
   onLogoClick: () => void;
+  gameMode: GameMode;
+  fontSize: FontSize;
+  caretStyle: CaretStyle;
+  showGhostCaret: boolean;
+  smoothCaret: boolean;
+  wordGoal: number;
 }
 
 const VISIBLE_LINES = 3;
-const LINE_HEIGHT_PX = 48;
+
+const FONT_SIZE_MAP: Record<FontSize, { text: string; lineHeight: number }> = {
+  small: { text: "text-lg", lineHeight: 36 },
+  medium: { text: "text-2xl", lineHeight: 48 },
+  large: { text: "text-3xl", lineHeight: 56 },
+};
 
 export function TypingInterface({
   words,
@@ -38,6 +50,12 @@ export function TypingInterface({
   isActive,
   targetWpm,
   onLogoClick,
+  gameMode,
+  fontSize,
+  caretStyle,
+  showGhostCaret,
+  smoothCaret,
+  wordGoal,
 }: TypingInterfaceProps) {
   const [showExitDialog, setShowExitDialog] = useState(false);
   const wordRefs = useRef<(HTMLSpanElement | null)[]>([]);
@@ -50,7 +68,18 @@ export function TypingInterface({
   const ghostAnimRef = useRef<number | null>(null);
   const ghostStartTimeRef = useRef<number | null>(null);
 
-  // Flatten all characters with their word/char indices for ghost caret positioning
+  const fontConfig = FONT_SIZE_MAP[fontSize];
+  const lineHeightPx = fontConfig.lineHeight;
+
+  // Caret dimensions based on style
+  const caretWidth = caretStyle === "block" ? "0.6em" : caretStyle === "underline" ? "0.6em" : "2.5px";
+  const caretHeight = caretStyle === "underline" ? "3px" : "1.4em";
+  const caretTopOffset = caretStyle === "underline" ? "calc(1.4em - 3px)" : "0px";
+
+  const transitionStyle = smoothCaret ? "transform 100ms cubic-bezier(0.25, 1, 0.5, 1)" : "none";
+  const ghostTransitionStyle = smoothCaret ? "transform 200ms cubic-bezier(0.25, 1, 0.5, 1)" : "none";
+
+  // Flatten all characters for ghost caret positioning
   const flatChars = useRef<{ wi: number; ci: number }[]>([]);
   useEffect(() => {
     const chars: { wi: number; ci: number }[] = [];
@@ -58,9 +87,8 @@ export function TypingInterface({
       word.split("").forEach((_, ci) => {
         chars.push({ wi, ci });
       });
-      // Add a virtual char for the space after each word (except last)
       if (wi < words.length - 1) {
-        chars.push({ wi, ci: word.length }); // space position
+        chars.push({ wi, ci: word.length });
       }
     });
     flatChars.current = chars;
@@ -68,7 +96,7 @@ export function TypingInterface({
 
   // Initialize ghost caret at first character position
   useLayoutEffect(() => {
-    if (!isActive && innerRef.current && flatChars.current.length > 0) {
+    if (!isActive && innerRef.current && flatChars.current.length > 0 && showGhostCaret) {
       const firstChar = charRefs.current.get("0-0");
       if (firstChar && innerRef.current) {
         const containerRect = innerRef.current.getBoundingClientRect();
@@ -79,10 +107,11 @@ export function TypingInterface({
         });
       }
     }
-  }, [isActive, words]);
+  }, [isActive, words, showGhostCaret]);
 
-  // Ghost caret animation: advance at target WPM speed
+  // Ghost caret animation
   useEffect(() => {
+    if (!showGhostCaret) return;
     if (!isActive) {
       ghostStartTimeRef.current = null;
       if (ghostAnimRef.current) cancelAnimationFrame(ghostAnimRef.current);
@@ -138,7 +167,7 @@ export function TypingInterface({
     return () => {
       if (ghostAnimRef.current) cancelAnimationFrame(ghostAnimRef.current);
     };
-  }, [isActive, targetWpm, words]);
+  }, [isActive, targetWpm, words, showGhostCaret]);
 
   // Scroll to keep current word visible
   useEffect(() => {
@@ -235,39 +264,53 @@ export function TypingInterface({
               acc: <span className="text-3xl font-bold text-foreground">{accuracy}%</span>
             </span>
           </div>
-          <span className={`text-4xl font-bold ${timeLeft <= 5 ? "text-destructive animate-pulse-glow" : "text-foreground"}`}>
-            {formatTime(timeLeft)}
-          </span>
+          <div className="flex items-center gap-4">
+            {gameMode === "words" && (
+              <span className="text-muted-foreground">
+                <span className="text-2xl font-bold text-foreground">{currentWordIndex}</span>
+                <span className="text-sm">/{wordGoal}</span>
+              </span>
+            )}
+            {gameMode === "timed" && (
+              <span className={`text-4xl font-bold ${timeLeft <= 5 ? "text-destructive animate-pulse-glow" : "text-foreground"}`}>
+                {formatTime(timeLeft)}
+              </span>
+            )}
+            {gameMode === "practice" && (
+              <span className="text-2xl font-medium text-muted-foreground">zen</span>
+            )}
+          </div>
         </div>
 
-        {/* Words display - only 3 lines visible */}
+        {/* Words display */}
         <div
           ref={containerRef}
-          className="overflow-hidden rounded-xl border border-border bg-card p-8 text-2xl leading-loose"
-          style={{ height: `${VISIBLE_LINES * LINE_HEIGHT_PX + 16}px` }}
+          className={`overflow-hidden rounded-xl border border-border bg-card p-8 ${fontConfig.text} leading-loose`}
+          style={{ height: `${VISIBLE_LINES * lineHeightPx + 16}px` }}
         >
           <div ref={innerRef} className="relative flex flex-wrap gap-x-2.5 gap-y-2">
-            {/* Ghost caret - moves at target WPM speed */}
-            {ghostCaretPos && (
+            {/* Ghost caret */}
+            {showGhostCaret && ghostCaretPos && (
               <span
                 className="absolute pointer-events-none z-[9] rounded-full caret-ghost"
                 style={{
-                  width: "2.5px",
-                  height: "1.4em",
+                  width: caretWidth,
+                  height: caretHeight,
                   backgroundColor: "rgba(255, 255, 255, 0.5)",
-                  transform: `translate(${ghostCaretPos.left}px, ${ghostCaretPos.top}px)`,
-                  transition: "transform 200ms cubic-bezier(0.25, 1, 0.5, 1)",
+                  transform: `translate(${ghostCaretPos.left}px, ${ghostCaretPos.top}px) translateY(${caretTopOffset})`,
+                  transition: ghostTransitionStyle,
                 }}
               />
             )}
-            {/* Typing caret - follows user input */}
+            {/* Typing caret */}
             <span
-              className={`absolute w-[2.5px] pointer-events-none z-10 rounded-full caret-typing ${isActive ? "caret-active" : ""}`}
+              className={`absolute pointer-events-none z-10 rounded-full caret-typing ${isActive ? "caret-active" : ""}`}
               style={{
-                height: "1.4em",
+                width: caretWidth,
+                height: caretHeight,
                 backgroundColor: "#ffffff",
-                transform: `translate(${caretPos.left}px, ${caretPos.top}px)`,
-                transition: "transform 100ms cubic-bezier(0.25, 1, 0.5, 1)",
+                transform: `translate(${caretPos.left}px, ${caretPos.top}px) translateY(${caretTopOffset})`,
+                transition: transitionStyle,
               }}
             />
             {words.map((word, wi) => {
@@ -316,7 +359,6 @@ export function TypingInterface({
                       </span>
                     );
                   })}
-                  {/* Extra typed chars beyond word length */}
                   {isCurrent && currentInput.length > word.length && (
                     <span className="text-destructive">
                       {currentInput.slice(word.length)}
