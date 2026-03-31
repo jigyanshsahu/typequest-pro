@@ -3,20 +3,114 @@ import { toast } from "sonner";
 import { TopicSelection } from "@/components/TopicSelection";
 import { TypingInterface } from "@/components/TypingInterface";
 import { ResultsScreen } from "@/components/ResultsScreen";
+import { HistoryScreen } from "@/components/HistoryScreen";
 import { useTypingGame } from "@/hooks/useTypingGame";
 import { usePreferences } from "@/hooks/usePreferences";
+import { useHistory } from "@/hooks/useHistory";
+import { useAchievements } from "@/hooks/useAchievements";
+import type { Achievement } from "@/hooks/useAchievements";
 
-type Screen = "topic" | "typing" | "results";
+type Screen = "topic" | "typing" | "results" | "history";
 
-const GENERATE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-text`;
+const OLLAMA_URL = "http://localhost:11434/api/generate";
+const OLLAMA_MODEL = "mistral";
+
+// Determine target word count for the paragraph
+function getWordCount(gameMode: string, wordGoal: number, duration: number): number {
+  if (gameMode === "words") return wordGoal;
+  if (gameMode === "timed") return Math.max(40, Math.ceil((duration / 60) * 70));
+  return 80;
+}
+
+// Build the educational prompt
+function buildPrompt(topic: string, wordCount: number, difficulty: string): string {
+  const difficultyGuide =
+    difficulty === "easy"
+      ? "Use very simple vocabulary and short sentences. Target elementary school level. Common everyday words only."
+      : difficulty === "hard"
+      ? "Use advanced, academic vocabulary and complex sentence structures. Target university level. Include technical terminology."
+      : "Use clear, standard vocabulary with moderate complexity. Target high school level. Mix of common and moderately advanced words.";
+
+  return `You are an educational content generator for a typing practice application.
+
+Your goal is to help students revise concepts while practicing typing.
+
+Input:
+- Topic: ${topic}
+- Word count: approximately ${wordCount} words
+
+Instructions:
+- Write a clear, complete, exam-style definition or explanation of the topic "${topic}"
+- Keep the explanation concise but meaningful
+- Use simple, easy-to-understand English
+- Ensure the answer feels like it comes from a textbook
+- Maintain logical flow and clarity
+- The content MUST be specifically about "${topic}" — do not write about anything else
+
+Difficulty level: ${difficulty}
+${difficultyGuide}
+
+Formatting rules:
+- Use lowercase text only
+- Include proper punctuation (periods, commas)
+- No emojis, no special symbols, no markdown
+- No headings or bullet points
+- Output a single continuous paragraph
+- No extra explanation outside the paragraph
+- Do not start with "sure" or any preamble
+
+Quality:
+- The content should help revision for exams
+- Avoid vague or generic sentences
+- Make it informative and engaging
+- Every sentence should add value about ${topic}
+
+Output only the paragraph, nothing else.`;
+}
+
+// Fetch text from Ollama with retry
+async function fetchFromOllama(prompt: string): Promise<string> {
+  const res = await fetch(OLLAMA_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: OLLAMA_MODEL,
+      prompt,
+      stream: false,
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error(
+      `Ollama error (${res.status}). Make sure Ollama is running locally with the mistral model pulled.`
+    );
+  }
+
+  const data = await res.json();
+  return data.response as string;
+}
+
+// Clean Ollama response into typeable text
+function cleanResponse(raw: string): string {
+  return raw
+    .replace(/[\r\n]+/g, " ")
+    .replace(/[^a-zA-Z0-9.,;:!?'"\-\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
 
 const Index = () => {
   const [screen, setScreen] = useState<Screen>("topic");
   const [isLoading, setIsLoading] = useState(false);
   const [text, setText] = useState("");
   const [topic, setTopic] = useState("");
+  const [newAchievements, setNewAchievements] = useState<Achievement[]>([]);
+  const [resultSaved, setResultSaved] = useState(false);
 
   const { prefs, update, reset: resetPrefs } = usePreferences();
+  const historyHook = useHistory();
+  const { checkAchievements, allAchievements, unlockedCount, totalCount } = useAchievements();
 
   const gameDuration = prefs.gameMode === "timed" ? prefs.duration : 9999;
   const game = useTypingGame(text, gameDuration, prefs.targetWpm);
@@ -24,51 +118,78 @@ const Index = () => {
   const handleStart = useCallback(async (t: string) => {
     setIsLoading(true);
     setTopic(t);
+    setResultSaved(false);
+    setNewAchievements([]);
+
+    const wordCount = getWordCount(prefs.gameMode, prefs.wordGoal, prefs.duration);
+    const prompt = buildPrompt(t, wordCount, prefs.difficulty);
 
     try {
-      const res = await fetch(GENERATE_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify({ topic: t, punctuation: prefs.punctuation, numbers: prefs.numbers }),
-      });
+      let raw = await fetchFromOllama(prompt);
+      let cleaned = cleanResponse(raw);
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to generate text");
+      if (cleaned.split(" ").length < 15) {
+        raw = await fetchFromOllama(prompt);
+        cleaned = cleanResponse(raw);
       }
 
-      const data = await res.json();
-      let cleaned = data.text.toLowerCase();
-      if (!prefs.punctuation) {
-        cleaned = cleaned.replace(/[^a-z0-9\s]/g, "");
+      if (!cleaned || cleaned.split(" ").length < 5) {
+        throw new Error("Ollama returned an incomplete response. Please try again.");
       }
-      if (!prefs.numbers) {
-        cleaned = cleaned.replace(/[0-9]/g, "");
-      }
-      cleaned = cleaned.replace(/\s+/g, " ").trim();
+
       setText(cleaned);
       setScreen("typing");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to generate text");
+      if (e instanceof TypeError && e.message.includes("fetch")) {
+        toast.error("Cannot connect to Ollama. Make sure it is running on http://localhost:11434");
+      } else {
+        toast.error(e instanceof Error ? e.message : "Failed to generate text");
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [prefs.punctuation, prefs.numbers]);
+  }, [prefs.gameMode, prefs.wordGoal, prefs.duration, prefs.difficulty]);
 
   const handleTryAgain = useCallback(() => {
     game.reset();
+    setResultSaved(false);
+    setNewAchievements([]);
     setScreen("typing");
   }, [game]);
 
   const handleNewTopic = useCallback(() => {
     setText("");
+    setResultSaved(false);
+    setNewAchievements([]);
     setScreen("topic");
   }, []);
 
-  // Auto-switch to results when game finishes (timed mode or all words typed)
+  // Save result and check achievements when transitioning to results
+  useEffect(() => {
+    if (screen === "results" && !resultSaved && game.wpm > 0) {
+      const result = historyHook.addResult({
+        topic,
+        wpm: game.wpm,
+        accuracy: game.accuracy,
+        correctWords: game.correctWords,
+        incorrectWords: game.incorrectWords,
+        difficulty: prefs.difficulty,
+        gameMode: prefs.gameMode,
+        duration: prefs.duration,
+      });
+
+      // Check for new achievements
+      const unlocked = checkAchievements([result, ...historyHook.history], result);
+      if (unlocked.length > 0) {
+        setNewAchievements(unlocked);
+        toast.success(`🏆 ${unlocked.length} new achievement${unlocked.length > 1 ? "s" : ""} unlocked!`);
+      }
+
+      setResultSaved(true);
+    }
+  }, [screen, resultSaved, game.wpm, game.accuracy, game.correctWords, game.incorrectWords, topic, prefs.difficulty, prefs.gameMode, prefs.duration, historyHook, checkAchievements]);
+
+  // Auto-switch to results when game finishes
   useEffect(() => {
     if (screen === "typing" && game.isFinished) {
       const t = setTimeout(() => setScreen("results"), 300);
@@ -84,6 +205,25 @@ const Index = () => {
     }
   }, [screen, prefs.gameMode, prefs.wordGoal, game.currentWordIndex]);
 
+  if (screen === "history") {
+    return (
+      <HistoryScreen
+        history={historyHook.history}
+        bestWpm={historyHook.bestWpm}
+        avgWpm={historyHook.avgWpm}
+        avgAccuracy={historyHook.avgAccuracy}
+        totalTests={historyHook.totalTests}
+        bestByTopic={historyHook.bestByTopic}
+        wpmOverTime={historyHook.wpmOverTime}
+        achievements={allAchievements}
+        unlockedCount={unlockedCount}
+        totalAchievementCount={totalCount}
+        onBack={() => setScreen("topic")}
+        onClearHistory={historyHook.clearHistory}
+      />
+    );
+  }
+
   if (screen === "topic") {
     return (
       <TopicSelection
@@ -92,6 +232,9 @@ const Index = () => {
         prefs={prefs}
         onUpdatePref={update}
         onResetPrefs={resetPrefs}
+        onShowHistory={() => setScreen("history")}
+        totalTests={historyHook.totalTests}
+        bestWpm={historyHook.bestWpm}
       />
     );
   }
@@ -109,6 +252,7 @@ const Index = () => {
         text={text}
         onTryAgain={handleTryAgain}
         onNewTopic={handleNewTopic}
+        newAchievements={newAchievements}
       />
     );
   }

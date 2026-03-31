@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 export type GameMode = "timed" | "practice" | "words";
 export type CaretStyle = "bar" | "block" | "underline";
 export type FontSize = "small" | "medium" | "large";
+export type Difficulty = "easy" | "medium" | "hard";
 
 export interface Preferences {
   // Typing settings
@@ -12,6 +13,7 @@ export interface Preferences {
   numbers: boolean;
   gameMode: GameMode;
   wordGoal: number;
+  difficulty: Difficulty;
 
   // Visual
   fontSize: FontSize;
@@ -27,6 +29,7 @@ const DEFAULTS: Preferences = {
   numbers: false,
   gameMode: "timed",
   wordGoal: 50,
+  difficulty: "medium",
   fontSize: "medium",
   caretStyle: "bar",
   showGhostCaret: true,
