@@ -1,7 +1,0 @@
-/* Reset default Vite styling that conflicts with the app layout */
-#root {
-  max-width: 100%;
-  margin: 0;
-  padding: 0;
-  text-align: left;
-}
