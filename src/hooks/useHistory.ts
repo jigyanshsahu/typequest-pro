@@ -20,7 +20,9 @@ function loadHistory(): TestResult[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) return JSON.parse(raw);
-  } catch {}
+  } catch (error) {
+    console.error("Failed to load history", error);
+  }
   return [];
 }
 

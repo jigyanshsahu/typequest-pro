@@ -42,7 +42,9 @@ function load(): Preferences {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) return { ...DEFAULTS, ...JSON.parse(raw) };
-  } catch {}
+  } catch (error) {
+    console.error("Failed to load preferences", error);
+  }
   return { ...DEFAULTS };
 }
 

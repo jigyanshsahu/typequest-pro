@@ -23,13 +23,34 @@ function getWordCount(gameMode: string, wordGoal: number, duration: number): num
 }
 
 // Build the educational prompt
-function buildPrompt(topic: string, wordCount: number, difficulty: string): string {
+function buildPrompt(topic: string, wordCount: number, difficulty: string, punctuation: boolean, numbers: boolean): string {
   const difficultyGuide =
     difficulty === "easy"
       ? "Use very simple vocabulary and short sentences. Target elementary school level. Common everyday words only."
       : difficulty === "hard"
       ? "Use advanced, academic vocabulary and complex sentence structures. Target university level. Include technical terminology."
       : "Use clear, standard vocabulary with moderate complexity. Target high school level. Mix of common and moderately advanced words.";
+
+  const formatRules = [
+    "- Use lowercase text only",
+    "- No emojis, no markdown",
+    "- No headings or bullet points",
+    "- Output a single continuous paragraph",
+    "- No extra explanation outside the paragraph",
+    "- Do not start with 'sure' or any preamble"
+  ];
+
+  if (!punctuation) {
+    formatRules.push("- Do not use any punctuation (no periods, no commas, no dashes)");
+  } else {
+    formatRules.push("- Include proper punctuation (periods, commas)");
+  }
+
+  if (!numbers) {
+    formatRules.push("- Do not use any numbers or digits");
+  } else {
+    formatRules.push("- You may use numbers where relevant");
+  }
 
   return `You are an educational content generator for a typing practice application.
 
@@ -51,13 +72,7 @@ Difficulty level: ${difficulty}
 ${difficultyGuide}
 
 Formatting rules:
-- Use lowercase text only
-- Include proper punctuation (periods, commas)
-- No emojis, no special symbols, no markdown
-- No headings or bullet points
-- Output a single continuous paragraph
-- No extra explanation outside the paragraph
-- Do not start with "sure" or any preamble
+${formatRules.join("\n")}
 
 Quality:
 - The content should help revision for exams
@@ -91,10 +106,17 @@ async function fetchFromOllama(prompt: string): Promise<string> {
 }
 
 // Clean Ollama response into typeable text
-function cleanResponse(raw: string): string {
-  return raw
-    .replace(/[\r\n]+/g, " ")
-    .replace(/[^a-zA-Z0-9.,;:!?'"\-\s]/g, "")
+function cleanResponse(raw: string, punctuation: boolean, numbers: boolean): string {
+  let cleaned = raw.replace(/[\r\n]+/g, " ");
+  
+  let allowed = "a-zA-Z\\s";
+  if (punctuation) allowed += ".,;:!?'\"\\-";
+  if (numbers) allowed += "0-9";
+
+  const regex = new RegExp(`[^${allowed}]`, "g");
+  cleaned = cleaned.replace(regex, "");
+  
+  return cleaned
     .replace(/\s+/g, " ")
     .trim()
     .toLowerCase();
@@ -122,15 +144,15 @@ const Index = () => {
     setNewAchievements([]);
 
     const wordCount = getWordCount(prefs.gameMode, prefs.wordGoal, prefs.duration);
-    const prompt = buildPrompt(t, wordCount, prefs.difficulty);
+    const prompt = buildPrompt(t, wordCount, prefs.difficulty, prefs.punctuation, prefs.numbers);
 
     try {
       let raw = await fetchFromOllama(prompt);
-      let cleaned = cleanResponse(raw);
+      let cleaned = cleanResponse(raw, prefs.punctuation, prefs.numbers);
 
       if (cleaned.split(" ").length < 15) {
         raw = await fetchFromOllama(prompt);
-        cleaned = cleanResponse(raw);
+        cleaned = cleanResponse(raw, prefs.punctuation, prefs.numbers);
       }
 
       if (!cleaned || cleaned.split(" ").length < 5) {
@@ -148,7 +170,7 @@ const Index = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [prefs.gameMode, prefs.wordGoal, prefs.duration, prefs.difficulty]);
+  }, [prefs.gameMode, prefs.wordGoal, prefs.duration, prefs.difficulty, prefs.punctuation, prefs.numbers]);
 
   const handleTryAgain = useCallback(() => {
     game.reset();

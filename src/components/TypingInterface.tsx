@@ -332,7 +332,11 @@ export function TypingInterface({
       <button
         onClick={(e) => {
           e.stopPropagation();
-          isActive ? setShowExitDialog(true) : onLogoClick();
+          if (isActive) {
+            setShowExitDialog(true);
+          } else {
+            onLogoClick();
+          }
         }}
         className="absolute top-6 right-6 flex items-center gap-2 transition-opacity hover:opacity-70 cursor-pointer"
       >

@@ -280,6 +280,16 @@ export function TopicSelection({ onStart, isLoading, prefs, onUpdatePref, onRese
               {/* Toggles */}
               <div className="flex flex-wrap gap-3">
                 <ToggleChip
+                  label="punctuation"
+                  active={prefs.punctuation}
+                  onClick={() => onUpdatePref("punctuation", !prefs.punctuation)}
+                />
+                <ToggleChip
+                  label="numbers"
+                  active={prefs.numbers}
+                  onClick={() => onUpdatePref("numbers", !prefs.numbers)}
+                />
+                <ToggleChip
                   label="ghost caret"
                   active={prefs.showGhostCaret}
                   onClick={() => onUpdatePref("showGhostCaret", !prefs.showGhostCaret)}
