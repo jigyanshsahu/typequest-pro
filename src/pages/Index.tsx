@@ -12,8 +12,8 @@ import type { Achievement } from "@/hooks/useAchievements";
 
 type Screen = "topic" | "typing" | "results" | "history";
 
-const OLLAMA_URL = "http://localhost:11434/api/generate";
-const OLLAMA_MODEL = "mistral";
+const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
+const GROQ_MODEL = "llama-3.3-70b-versatile";
 
 // Determine target word count for the paragraph
 function getWordCount(gameMode: string, wordGoal: number, duration: number): number {
@@ -83,29 +83,43 @@ Quality:
 Output only the paragraph, nothing else.`;
 }
 
-// Fetch text from Ollama with retry
-async function fetchFromOllama(prompt: string): Promise<string> {
-  const res = await fetch(OLLAMA_URL, {
+// Fetch text from Groq
+async function fetchFromGroq(prompt: string): Promise<string> {
+  const apiKey = import.meta.env.VITE_GROQ_API_KEY;
+  
+  if (!apiKey) {
+    throw new Error("Groq API key is missing. Please add VITE_GROQ_API_KEY to your .env file.");
+  }
+
+  const res = await fetch(GROQ_URL, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { 
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`
+    },
     body: JSON.stringify({
-      model: OLLAMA_MODEL,
-      prompt,
-      stream: false,
+      model: GROQ_MODEL,
+      messages: [
+        { role: "system", content: "You are an educational content generator for a typing practice application." },
+        { role: "user", content: prompt }
+      ],
+      temperature: 0.7,
+      max_tokens: 500,
     }),
   });
 
   if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
     throw new Error(
-      `Ollama error (${res.status}). Make sure Ollama is running locally with the mistral model pulled.`
+      `Groq error (${res.status}): ${errorData.error?.message || "Unknown error"}`
     );
   }
 
   const data = await res.json();
-  return data.response as string;
+  return data.choices[0]?.message?.content || "";
 }
 
-// Clean Ollama response into typeable text
+// Clean Groq response into typeable text
 function cleanResponse(raw: string, punctuation: boolean, numbers: boolean): string {
   let cleaned = raw.replace(/[\r\n]+/g, " ");
   
@@ -147,23 +161,23 @@ const Index = () => {
     const prompt = buildPrompt(t, wordCount, prefs.difficulty, prefs.punctuation, prefs.numbers);
 
     try {
-      let raw = await fetchFromOllama(prompt);
+      let raw = await fetchFromGroq(prompt);
       let cleaned = cleanResponse(raw, prefs.punctuation, prefs.numbers);
 
       if (cleaned.split(" ").length < 15) {
-        raw = await fetchFromOllama(prompt);
+        raw = await fetchFromGroq(prompt);
         cleaned = cleanResponse(raw, prefs.punctuation, prefs.numbers);
       }
 
       if (!cleaned || cleaned.split(" ").length < 5) {
-        throw new Error("Ollama returned an incomplete response. Please try again.");
+        throw new Error("Groq returned an incomplete response. Please try again.");
       }
 
       setText(cleaned);
       setScreen("typing");
     } catch (e) {
       if (e instanceof TypeError && e.message.includes("fetch")) {
-        toast.error("Cannot connect to Ollama. Make sure it is running on http://localhost:11434");
+        toast.error("Failed to connect to Groq API. Please check your internet connection.");
       } else {
         toast.error(e instanceof Error ? e.message : "Failed to generate text");
       }

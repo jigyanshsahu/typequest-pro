@@ -15,11 +15,6 @@ const GAME_MODES: { value: GameMode; label: string; desc: string }[] = [
   { value: "practice", label: "zen", desc: "no timer, just flow" },
   { value: "words", label: "words", desc: "finish a word goal" },
 ];
-const DIFFICULTIES: { value: Difficulty; label: string }[] = [
-  { value: "easy", label: "easy" },
-  { value: "medium", label: "medium" },
-  { value: "hard", label: "hard" },
-];
 const CARET_STYLES: { value: CaretStyle; label: string }[] = [
   { value: "bar", label: "│" },
   { value: "block", label: "█" },
@@ -54,7 +49,13 @@ export function TopicSelection({ onStart, isLoading, prefs, onUpdatePref, onRese
 
   const handleStart = () => {
     const trimmed = topic.trim();
-    if (trimmed) onStart(trimmed);
+    if (trimmed) {
+      onStart(trimmed);
+    } else if (topic.length > 0) {
+      // Pick a random topic if user just typed spaces (shortcut for "surprise me")
+      const random = TOPIC_CHIPS[Math.floor(Math.random() * TOPIC_CHIPS.length)];
+      onStart(random);
+    }
   };
 
   const handleChipClick = (t: string) => {
@@ -83,16 +84,21 @@ export function TopicSelection({ onStart, isLoading, prefs, onUpdatePref, onRese
             <input
               ref={inputRef}
               type="text"
-              placeholder="enter a topic... (e.g. photosynthesis, gravity, world war 2)"
+              placeholder="enter a topic..."
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleStart();
+                // If input is empty/whitespace, Space also triggers "Go" (Random topic)
+                if (e.key === " " && topic.trim().length === 0) {
+                  e.preventDefault();
+                  handleStart();
+                }
               }}
               className="w-full rounded-lg border border-border bg-secondary px-5 py-4 text-lg text-foreground placeholder:text-muted-foreground/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-colors"
               disabled={isLoading}
             />
-            {topic.trim() && !isLoading && (
+            {topic.length > 0 && !isLoading && (
               <button
                 onClick={handleStart}
                 className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md bg-primary px-4 py-1.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-80"
@@ -184,25 +190,6 @@ export function TopicSelection({ onStart, isLoading, prefs, onUpdatePref, onRese
           {prefs.gameMode === "practice" && (
             <span className="text-sm text-muted-foreground italic">no limits — just type</span>
           )}
-
-          <div className="h-6 w-px bg-border" />
-
-          {/* Difficulty */}
-          <div className="flex items-center gap-1">
-            {DIFFICULTIES.map((d) => (
-              <button
-                key={d.value}
-                onClick={() => onUpdatePref("difficulty", d.value)}
-                className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
-                  prefs.difficulty === d.value
-                    ? "bg-primary text-primary-foreground font-medium"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {d.label}
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* Appearance settings (collapsible) */}
