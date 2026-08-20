@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { toast } from "sonner";
+import Groq from "groq-sdk";
 import { TopicSelection } from "@/components/TopicSelection";
 import { TypingInterface } from "@/components/TypingInterface";
 import { ResultsScreen } from "@/components/ResultsScreen";
@@ -12,8 +13,18 @@ import type { Achievement } from "@/hooks/useAchievements";
 
 type Screen = "topic" | "typing" | "results" | "history";
 
-const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
-const GROQ_MODEL = "llama-3.3-70b-versatile";
+const GROQ_MODEL = "openai/gpt-oss-120b";
+
+// Lazy singleton Groq client
+let _groq: Groq | null = null;
+function getGroqClient(): Groq {
+  if (!_groq) {
+    const apiKey = import.meta.env.VITE_GROQ_API_KEY;
+    if (!apiKey) throw new Error("Groq API key is missing. Please add VITE_GROQ_API_KEY to your .env file.");
+    _groq = new Groq({ apiKey, dangerouslyAllowBrowser: true });
+  }
+  return _groq;
+}
 
 // Determine target word count for the paragraph
 function getWordCount(gameMode: string, wordGoal: number, duration: number): number {
@@ -83,46 +94,42 @@ Quality:
 Output only the paragraph, nothing else.`;
 }
 
-// Fetch text from Groq
-async function fetchFromGroq(prompt: string): Promise<string> {
-  const apiKey = import.meta.env.VITE_GROQ_API_KEY;
-  
-  if (!apiKey) {
-    throw new Error("Groq API key is missing. Please add VITE_GROQ_API_KEY to your .env file.");
-  }
 
-  const res = await fetch(GROQ_URL, {
-    method: "POST",
-    headers: { 
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model: GROQ_MODEL,
-      messages: [
-        { role: "system", content: "You are an educational content generator for a typing practice application." },
-        { role: "user", content: prompt }
-      ],
-      temperature: 0.7,
-      max_tokens: 500,
-    }),
+// Fetch text from Groq using the official SDK
+async function fetchFromGroq(prompt: string): Promise<string> {
+  const groq = getGroqClient();
+
+  const completion = await groq.chat.completions.create({
+    model: GROQ_MODEL,
+    messages: [
+      { role: "system", content: "You are an educational content generator for a typing practice application. Output ONLY the requested paragraph. No preamble, no thinking, no explanation." },
+      { role: "user", content: prompt },
+    ],
+    temperature: 0.6,
+    max_tokens: 800,
   });
 
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(
-      `Groq error (${res.status}): ${errorData.error?.message || "Unknown error"}`
-    );
-  }
-
-  const data = await res.json();
-  return data.choices[0]?.message?.content || "";
+  const content = completion.choices[0]?.message?.content ?? "";
+  console.log("[Groq finish_reason]", completion.choices[0]?.finish_reason);
+  console.log("[Groq raw preview]", JSON.stringify(content.substring(0, 300)));
+  return content;
 }
 
 // Clean Groq response into typeable text
 function cleanResponse(raw: string, punctuation: boolean, numbers: boolean): string {
-  let cleaned = raw.replace(/[\r\n]+/g, " ");
-  
+  let cleaned = raw;
+
+  // Strip <think>...</think> blocks (with or without closing tag)
+  cleaned = cleaned.replace(/<think>[\s\S]*?<\/think>/gi, "");
+  // If an unclosed <think> block exists, strip everything from it onwards
+  cleaned = cleaned.replace(/<think>[\s\S]*/gi, "");
+
+  // Collapse newlines to spaces
+  cleaned = cleaned.replace(/[\r\n]+/g, " ");
+
+  // Remove common preamble phrases the model might prepend
+  cleaned = cleaned.replace(/^(sure[,!.]?\s*|here (is|are)[^:]*:\s*|certainly[,!.]?\s*|of course[,!.]?\s*)/i, "");
+
   let allowed = "a-zA-Z\\s";
   if (punctuation) allowed += ".,;:!?'\"\\-";
   if (numbers) allowed += "0-9";
@@ -162,14 +169,19 @@ const Index = () => {
 
     try {
       let raw = await fetchFromGroq(prompt);
+      console.log("[Groq raw preview]:", JSON.stringify(raw?.substring(0, 300)));
       let cleaned = cleanResponse(raw, prefs.punctuation, prefs.numbers);
+      console.log("[Groq cleaned preview]:", JSON.stringify(cleaned?.substring(0, 300)));
 
-      if (cleaned.split(" ").length < 15) {
+      // Retry once if response is too short after cleaning
+      if (cleaned.split(" ").filter(Boolean).length < 20) {
         raw = await fetchFromGroq(prompt);
+        console.log("[Groq retry raw preview]:", JSON.stringify(raw?.substring(0, 300)));
         cleaned = cleanResponse(raw, prefs.punctuation, prefs.numbers);
+        console.log("[Groq retry cleaned preview]:", JSON.stringify(cleaned?.substring(0, 300)));
       }
 
-      if (!cleaned || cleaned.split(" ").length < 5) {
+      if (!cleaned || cleaned.split(" ").filter(Boolean).length < 5) {
         throw new Error("Groq returned an incomplete response. Please try again.");
       }
 
